@@ -1,0 +1,1106 @@
+{
+ "project": "A municipal sports complex: bookings with setup and teardown buffers that may never overlap.",
+ "level": "GroundBook",
+ "steps": [
+  {
+   "id": "B-01",
+   "title": "The complex, as a day you can look at",
+   "scene": "Four grounds, opening hours that differ on Sundays, and six event types each with its own setup and teardown. All of it lives on a wall planner, in pencil.",
+   "build": "Load grounds, hours, event types and their buffers once at start-up from a settings object, and serve a day that can be read as blocks and the shadows around them — the shadow derived from the event type, never stored as a second booking somebody has to remember to move.",
+   "follows": "Nothing can be requested, confirmed or moved until the complex exists.",
+   "story": {
+    "as": "caretaker",
+    "want": "see a ground's day as blocks and the setup and teardown around them",
+    "so": "I can see the real shape of the day, not just the matches"
+   },
+   "summary": "The app starts with four grounds, their opening hours and six event types with buffers loaded once, and answers a day as blocks with the shadows around them.",
+   "endpoints": [
+    {
+     "m": "GET",
+     "p": "/venues/{venue}/grounds",
+     "q": null,
+     "req": null,
+     "res": {
+      "venue": "deccan",
+      "grounds": [
+       {
+        "ground": "A",
+        "name": "Ground A",
+        "opens": "06:00",
+        "closes": "22:00",
+        "sunday_opens": "07:00",
+        "sunday_closes": "20:00"
+       }
+      ]
+     },
+     "codes": [
+      [
+       "200",
+       "",
+       "always"
+      ],
+      [
+       "404",
+       "",
+       "unknown venue — /errors/no-such-venue"
+      ]
+     ]
+    },
+    {
+     "m": "GET",
+     "p": "/venues/{venue}/event-types",
+     "q": null,
+     "req": null,
+     "res": {
+      "event_types": [
+       {
+        "code": "practice",
+        "name": "Practice",
+        "setup_minutes": 20,
+        "teardown_minutes": 20
+       },
+       {
+        "code": "school_day",
+        "name": "School sports day",
+        "setup_minutes": 120,
+        "teardown_minutes": 120
+       }
+      ]
+     },
+     "codes": [
+      [
+       "200",
+       "",
+       "always"
+      ],
+      [
+       "404",
+       "",
+       "unknown venue — /errors/no-such-venue"
+      ]
+     ]
+    },
+    {
+     "m": "GET",
+     "p": "/venues/{venue}/grounds/{ground}/day",
+     "q": "date=YYYY-MM-DD (default today)",
+     "req": null,
+     "res": {
+      "venue": "deccan",
+      "ground": "A",
+      "date": "2026-10-03",
+      "opens": "06:00",
+      "closes": "22:00",
+      "bookings": [
+       {
+        "booking_id": "BK0412",
+        "event": "league",
+        "from": "2026-10-03T14:00:00Z",
+        "to": "2026-10-03T17:00:00Z",
+        "ground_held_from": "2026-10-03T13:20:00Z",
+        "ground_held_to": "2026-10-03T17:30:00Z",
+        "state": "confirmed"
+       }
+      ]
+     },
+     "codes": [
+      [
+       "200",
+       "",
+       "bookings in `from` order, each with its derived shadow"
+      ],
+      [
+       "400",
+       "",
+       "bad date — /errors/validation"
+      ],
+      [
+       "404",
+       "/errors/no-such-ground",
+       "no such ground at this venue"
+      ]
+     ]
+    }
+   ],
+   "data": [
+    "venues(id, slug, name) — one row 'deccan'",
+    "grounds(id, venue_id, code, name, opens, closes, sunday_opens, sunday_closes)",
+    "event_types(id, venue_id, code, name, setup_minutes, teardown_minutes)",
+    "seed files seed/grounds.csv, seed/event_types.csv read once at start-up"
+   ],
+   "rules": [
+    "The shadow is computed on read from the booking's event type: `ground_held_from = from − setup`, `ground_held_to = to + teardown`. No column stores it.",
+    "Seeding is idempotent.",
+    "Settings (database path, host, port) from one settings object.",
+    "Opening hours depend on the weekday: Sunday uses the sunday_* columns.",
+    "Filters are typed query parameters bound to enums; every response goes through a declared response model (no bare dicts)."
+   ],
+   "ac_user": [
+    [
+     "the app just started",
+     "Sabu opens Saturday",
+     "four empty strips, 06:00–22:00, and the six event types with their buffers in the legend"
+    ],
+    [
+     "he opens a Sunday",
+     "the strip",
+     "runs 07:00–20:00"
+    ],
+    [
+     "a restart",
+     "the grounds",
+     "four, not eight"
+    ]
+   ],
+   "ac_api": [
+    [
+     "a fresh database",
+     "start twice",
+     "4 grounds, 6 event types after both"
+    ],
+    [
+     "a league booking 14:00–17:00 (setup 40, teardown 30)",
+     "GET /day",
+     "ground_held_from 13:20, ground_held_to 17:30"
+    ],
+    [
+     "GET /day?date=2026-10-04 (Sunday)",
+     "any",
+     "opens 07:00"
+    ],
+    [
+     "GET /grounds/Z/day",
+     "any",
+     "404"
+    ]
+   ],
+   "done": [
+    "Three endpoints; shadows derived; Sunday hours; idempotent seeding tested; no stored shadow column."
+   ],
+   "try": {
+    "screen": "day",
+    "do": "Pick a Saturday, then step to the Sunday with the arrow. Read the legend under the strips.",
+    "see": "Four empty strips from GET /venues/deccan/grounds/{ground}/day, ticked 06:00-22:00; on the Sunday they run 07:00-20:00 because the sunday_* columns apply. The legend is the six event types with their setup / teardown minutes from GET /event-types. Restart the app: still four grounds, six types — seeding is idempotent. A block on the strip carries a lighter shadow either side, from `ground_held_from` and `ground_held_to`, which are computed on read — no column stores them."
+   }
+  },
+  {
+   "id": "B-02",
+   "title": "A club asks for a slot",
+   "scene": "Rafi calls Deepa for Saturday, two till five. He does not say that his ground staff arrive at twenty past one, because on the planner that has never mattered.",
+   "build": "A request endpoint taking an interval and an event type through a request model with real constraints, answering 201 — and separating a malformed interval (422) from one that ends before it starts or falls outside the ground's hours (400).",
+   "follows": "The day is readable; this is the first thing that changes it, so validation lives here.",
+   "story": {
+    "as": "club secretary",
+    "want": "request a slot by interval and event type",
+    "so": "my booking carries the setup time my ground staff actually need"
+   },
+   "summary": "A club requests a slot by ground, interval and event type and gets a `requested` booking back; an impossible interval is refused differently from a malformed body.",
+   "endpoints": [
+    {
+     "m": "POST",
+     "p": "/bookings",
+     "q": null,
+     "req": {
+      "ground": "A",
+      "event": "league",
+      "from": "2026-10-03T14:00:00Z",
+      "to": "2026-10-03T17:00:00Z",
+      "club": "Ambedkar Nagar CC"
+     },
+     "res": {
+      "booking_id": "BK0412",
+      "ground": "A",
+      "event": "league",
+      "from": "2026-10-03T14:00:00Z",
+      "to": "2026-10-03T17:00:00Z",
+      "ground_held_from": "2026-10-03T13:20:00Z",
+      "ground_held_to": "2026-10-03T17:30:00Z",
+      "state": "requested",
+      "hold_until": "2026-10-02T08:00:00Z"
+     },
+     "codes": [
+      [
+       "201",
+       "",
+       "requested; `Location: /bookings/BK0412`"
+      ],
+      [
+       "422",
+       "/errors/validation",
+       "the body fails validation; `errors[]` names each field"
+      ],
+      [
+       "400",
+       "/errors/bad-interval",
+       "`to` is not after `from`, or the interval crosses the ground's opening hours; `opens`/`closes` say the hours"
+      ],
+      [
+       "404",
+       "/errors/no-such-ground",
+       "no such ground at this venue"
+      ],
+      [
+       "400",
+       "/errors/no-such-event-type",
+       ""
+      ]
+     ]
+    },
+    {
+     "m": "GET",
+     "p": "/bookings/{booking_id}",
+     "q": null,
+     "req": null,
+     "res": {
+      "booking_id": "BK0412",
+      "ground": "A",
+      "event": "league",
+      "from": "2026-10-03T14:00:00Z",
+      "to": "2026-10-03T17:00:00Z",
+      "ground_held_from": "2026-10-03T13:20:00Z",
+      "ground_held_to": "2026-10-03T17:30:00Z",
+      "state": "requested"
+     },
+     "codes": [
+      [
+       "200",
+       "",
+       "the booking exists"
+      ],
+      [
+       "404",
+       "/errors/no-such-booking",
+       "no such booking at this venue"
+      ]
+     ]
+    }
+   ],
+   "data": [
+    "bookings(id, venue_id, ground_id, event_type_id, club_name, from_at, to_at, state requested|confirmed|cancelled|expired, requested_at, hold_until); settings HOLD_HOURS (24)"
+   ],
+   "rules": [
+    "`from` and `to` must parse, `to` > `from`, `from` not before the injected clock's now (nobody books the past), both on the same date, and the *shadow* must lie within the ground's hours for that weekday — everything after parsing is 400 bad-interval (valid body, impossible request).",
+    "Minimum interval 30 minutes, maximum 12 hours — validation.",
+    "`hold_until` = requested_at + HOLD_HOURS from the injected clock. No overlap check yet.",
+    "The request model uses `Field` constraints; a body that fails them is 422, a body that passes but asks for something impossible is 400 — two different types, tested separately."
+   ],
+   "ac_user": [
+    [
+     "Rafi asks for Saturday two till five",
+     "Deepa enters it",
+     "a booking number, and the strip shows the block with its shadow from 13:20"
+    ],
+    [
+     "she types five till two",
+     "submit",
+     "told the interval ends before it starts"
+    ],
+    [
+     "she asks for 05:00 on a weekday",
+     "submit",
+     "told the ground opens at six"
+    ]
+   ],
+   "ac_api": [
+    [
+     "a valid body",
+     "POST /bookings",
+     "201 with ground_held_from/to derived and state requested"
+    ],
+    [
+     "to ≤ from",
+     "POST",
+     "400 bad-interval"
+    ],
+    [
+     "shadow 05:40 on a ground opening 06:00",
+     "POST",
+     "400 bad-interval with opens"
+    ],
+    [
+     "event 'concert'",
+     "POST",
+     "400 no-such-event-type"
+    ],
+    [
+     "from missing",
+     "POST",
+     "422"
+    ]
+   ],
+   "done": [
+    "Endpoint with all responses; booking row written; hold computed; shadow-within-hours tested."
+   ],
+   "try": {
+    "screen": "book",
+    "do": "Pick a Saturday. Request ground A, League match, From 14:00, To 17:00. Then type From 17:00, To 14:00 and Request. Then From 06:20, To 08:00 and Request. Then clear the From field and Request.",
+    "see": "The green panel: a booking number with the ground held 13:20-17:30 (setup 40, teardown 30 from the event type) and a hold of 24 hours; the block appears on The day with its shadow. The red panel: 17:00-14:00 is 400 bad-interval; 06:20-08:00 is 400 bad-interval naming `opens` 06:00 because the shadow would start at 05:40; a missing `from` is 422 validation naming the field — a valid body that asks the impossible is a different type from a malformed one."
+   }
+  },
+  {
+   "id": "B-03",
+   "title": "Confirm, cancel, and the hour that has already gone",
+   "scene": "A club cancels a slot that started twenty minutes ago and expects it back on the planner as free. The same afternoon, Sabu tries to confirm a slot that has already begun.",
+   "build": "Confirm and cancel as real transitions, with the rules that depend on the current time — you cannot confirm a slot that has begun, you cannot cancel one that is over — read from an injected clock so a test can move time instead of waiting.",
+   "follows": "Requests exist; this is what resolves them. The injected clock is what every time rule is tested through.",
+   "story": {
+    "as": "booking clerk",
+    "want": "confirm and cancel bookings with the rules about time already passed",
+    "so": "nobody cancels a slot that has already started and expects it back"
+   },
+   "summary": "Confirm and cancel are real transitions with rules that depend on the injected clock.",
+   "endpoints": [
+    {
+     "m": "POST",
+     "p": "/bookings/{booking_id}/confirm",
+     "q": null,
+     "req": null,
+     "res": {
+      "booking_id": "BK0412",
+      "state": "confirmed",
+      "confirmed_at": "2026-10-01T09:00:00Z"
+     },
+     "codes": [
+      [
+       "200",
+       "",
+       "confirmed"
+      ],
+      [
+       "409",
+       "/errors/already-started",
+       "the interval has begun; it can no longer be confirmed or moved"
+      ],
+      [
+       "409",
+       "/errors/cancelled",
+       "a cancelled booking cannot be confirmed or moved; request a new one"
+      ],
+      [
+       "409",
+       "/errors/already-confirmed",
+       ""
+      ],
+      [
+       "404",
+       "/errors/no-such-booking",
+       "no such booking at this venue"
+      ]
+     ]
+    },
+    {
+     "m": "POST",
+     "p": "/bookings/{booking_id}/cancel",
+     "q": null,
+     "req": null,
+     "res": {
+      "booking_id": "BK0412",
+      "state": "cancelled",
+      "cancelled_at": "2026-10-03T14:20:00Z",
+      "late": true
+     },
+     "codes": [
+      [
+       "200",
+       "",
+       "cancelled; `late` is true when the interval had begun"
+      ],
+      [
+       "409",
+       "/errors/already-over",
+       "the interval has ended; it can no longer be cancelled"
+      ],
+      [
+       "409",
+       "/errors/already-cancelled",
+       ""
+      ],
+      [
+       "404",
+       "/errors/no-such-booking",
+       "no such booking at this venue"
+      ]
+     ]
+    }
+   ],
+   "data": [
+    "bookings gains confirmed_at, cancelled_at, late_cancel bool"
+   ],
+   "rules": [
+    "Confirm requires state requested and now < from. Cancel requires state requested or confirmed and now < to; if now ≥ from it is a late cancel — allowed and flagged `late`; the remainder of the slot is free from now, and since nobody can book the past nothing else needs protecting.",
+    "All `now` comparisons use the injected clock.",
+    "`Depends(get_clock)` overridable in tests.",
+    "Both the database session and the clock are `Depends` dependencies, so a test overrides either without touching the route."
+   ],
+   "ac_user": [
+    [
+     "a club cancels a slot that started twenty minutes ago",
+     "Deepa cancels it",
+     "it is marked cancelled late — the strip does not show the hour as free"
+    ],
+    [
+     "Sabu confirms a slot that has begun",
+     "confirm",
+     "refused"
+    ]
+   ],
+   "ac_api": [
+    [
+     "requested, clock before from",
+     "confirm",
+     "200 confirmed"
+    ],
+    [
+     "clock after from",
+     "confirm",
+     "409 already-started"
+    ],
+    [
+     "clock 20 min after from",
+     "cancel",
+     "200 with late true"
+    ],
+    [
+     "clock after to",
+     "cancel",
+     "409 already-over"
+    ],
+    [
+     "cancelled",
+     "confirm",
+     "409 cancelled"
+    ]
+   ],
+   "done": [
+    "Both transitions with all refusals under a fixed clock; late flag stored."
+   ],
+   "try": {
+    "screen": "booking",
+    "do": "Request a slot on the Book screen and open its booking card (the booking number in the green panel, or its block on The day). Press Confirm, then Confirm again. Request another slot, open it and press Cancel.",
+    "see": "Confirm answers 200 with `confirmed_at`; a second Confirm is 409 already-confirmed. Cancel before the start answers `late: false`, and the block on The day turns grey. Once the interval has begun, Confirm is 409 already-started and Cancel is 200 with `late: true` — the card says \"cancelled late\" and the strip keeps the block, shown as cancelled, rather than showing the hour as free. After the interval has ended Cancel is 409 already-over. Every `now` is the injected clock (tests/test_transitions.py moves it, since the page runs on today's time)."
+   }
+  },
+  {
+   "id": "B-04",
+   "title": "The refusals, once the shadows are counted",
+   "scene": "Two clubs are on the planner back to back at four o'clock. On paper they do not overlap. In reality one is clearing the ground while the other is putting up nets on it. And a booking a club cancelled last week must not come back just because someone presses confirm.",
+   "build": "Refuse an overlap once buffers are counted on both sides, and refuse a cancelled booking being reconfirmed — each with its own code, raised from a service function rather than a route.",
+   "follows": "The happy path is built. The buffered overlap is the whole point of this project, and it becomes the first row of its rule table.",
+   "story": {
+    "as": "booking clerk",
+    "want": "be refused an overlap once buffers are counted on both sides",
+    "so": "two clubs never arrive at the same ground on the same afternoon"
+   },
+   "summary": "Overlap is refused once buffers are counted on both sides, and a cancelled booking cannot be reconfirmed — each with its own code, raised from the service.",
+   "endpoints": [
+    {
+     "m": "POST",
+     "p": "/bookings",
+     "q": null,
+     "req": null,
+     "res": null,
+     "codes": [
+      [
+       "409",
+       "/errors/overlap",
+       "the shadow (interval plus buffers) clashes with another booking's shadow; `clashes_with` lists booking ids and their held ranges"
+      ],
+      [
+       "201",
+       "",
+       "the shadow clashes with nothing live on that ground"
+      ]
+     ]
+    },
+    {
+     "m": "POST",
+     "p": "/bookings/{booking_id}/confirm",
+     "q": null,
+     "req": null,
+     "res": null,
+     "codes": [
+      [
+       "409",
+       "/errors/cancelled",
+       "a cancelled booking cannot be confirmed or moved; request a new one"
+      ],
+      [
+       "409",
+       "/errors/overlap",
+       "the shadow (interval plus buffers) clashes with another booking's shadow; `clashes_with` lists booking ids and their held ranges"
+      ]
+     ]
+    }
+   ],
+   "data": [
+    "no new tables"
+   ],
+   "rules": [
+    "Live bookings are requested (not past hold_until) and confirmed. A new request clashes if its shadow intersects any live booking's shadow on the same ground: `held_from_new < held_to_other AND held_from_other < held_to_new`.",
+    "Confirm re-runs the check (a competing request may have been confirmed since).",
+    "Domain refusals are exceptions (Overlap, Cancelled, AlreadyStarted, AlreadyOver) raised in the service and mapped by one handler.",
+    "The exception → status mapping lives in one `exception_handler` registration; routes never build error responses."
+   ],
+   "ac_user": [
+    [
+     "one club 14:00–16:00 (teardown 30), another asks 16:00–18:00 (setup 40)",
+     "Deepa enters the second",
+     "refused: on paper they do not overlap, with buffers they do — and she is told which booking"
+    ]
+   ],
+   "ac_api": [
+    [
+     "A: 14:00–16:00 held to 16:30; request 16:00–18:00 held from 15:20",
+     "POST",
+     "409 overlap with clashes_with [A]"
+    ],
+    [
+     "request 17:10–19:00 held from 16:30, exactly where A's shadow ends (half-open: touching shadows do not clash)",
+     "POST",
+     "201"
+    ],
+    [
+     "a cancelled booking",
+     "confirm",
+     "409 cancelled"
+    ],
+    [
+     "any domain exception",
+     "handler",
+     "type, title, status, detail, named fields; no trace"
+    ]
+   ],
+   "done": [
+    "Overlap on shadows both sides; reconfirm refused; one handler; a test per refusal."
+   ],
+   "try": {
+    "screen": "book",
+    "do": "Request ground A, League match, From 14:00, To 16:00 on a Saturday. Then request the same ground and day From 16:00, To 18:00. Then From 17:10, To 19:00. Cancel a booking on its card and press Confirm on it.",
+    "see": "On paper 14:00-16:00 and 16:00-18:00 do not touch; with buffers the first is held to 16:30 and the second from 15:20, so the second is 409 overlap with `clashes_with` naming the first booking and its held range — The day marks the two shadows in red and draws the refused request hatched. 17:10-19:00 is held from 16:30 exactly and is 201: the predicate is half-open. Confirming a cancelled booking is 409 cancelled. Every refusal is raised in the service and mapped by the one handler in handlers.py; the table under the form lists each one the API documents."
+   }
+  },
+  {
+   "id": "B-05",
+   "title": "Moving a booking without breaking the day",
+   "scene": "Rafi asks to shift Saturday an hour later. Sabu erases the pencil mark, redraws it, and only then notices the school sports day.",
+   "build": "A move that re-checks the whole interval — including both buffers — in one transaction, so a booking is never briefly in two places or briefly in none.",
+   "follows": "What may not overlap is settled; a move is the first operation that could break it in the middle of itself.",
+   "story": {
+    "as": "club secretary",
+    "want": "move my booking and have the whole interval re-checked",
+    "so": "a change of time cannot quietly create a clash"
+   },
+   "summary": "A move re-checks the whole new interval including both buffers, in one transaction — never briefly in two places or none.",
+   "endpoints": [
+    {
+     "m": "POST",
+     "p": "/bookings/{booking_id}/move",
+     "q": null,
+     "req": {
+      "from": "2026-10-03T15:00:00Z",
+      "to": "2026-10-03T18:00:00Z"
+     },
+     "res": {
+      "booking_id": "BK0412",
+      "from": "2026-10-03T15:00:00Z",
+      "to": "2026-10-03T18:00:00Z",
+      "ground_held_from": "2026-10-03T14:20:00Z",
+      "ground_held_to": "2026-10-03T18:30:00Z",
+      "moved_at": "2026-10-01T10:00:00Z"
+     },
+     "codes": [
+      [
+       "200",
+       "",
+       "moved"
+      ],
+      [
+       "409",
+       "/errors/overlap",
+       "the shadow (interval plus buffers) clashes with another booking's shadow; `clashes_with` lists booking ids and their held ranges"
+      ],
+      [
+       "400",
+       "/errors/bad-interval",
+       "`to` is not after `from`, or the interval crosses the ground's opening hours; `opens`/`closes` say the hours"
+      ],
+      [
+       "422",
+       "/errors/validation",
+       "the body fails validation; `errors[]` names each field"
+      ],
+      [
+       "409",
+       "/errors/already-started",
+       "the interval has begun; it can no longer be confirmed or moved"
+      ],
+      [
+       "409",
+       "/errors/cancelled",
+       "a cancelled booking cannot be confirmed or moved; request a new one"
+      ],
+      [
+       "404",
+       "/errors/no-such-booking",
+       "no such booking at this venue"
+      ]
+     ]
+    }
+   ],
+   "data": [
+    "bookings gains moved_at, previous_from, previous_to (last move only)"
+   ],
+   "rules": [
+    "The overlap check for the new interval excludes the booking being moved; the old interval is released and the new one taken in one UPDATE.",
+    "A failure after the check leaves the booking exactly where it was.",
+    "Moving keeps the state (requested stays requested; confirmed stays confirmed).",
+    "The close is one session transaction: all writes or none; the test injects a failure after the first write and asserts nothing persisted."
+   ],
+   "ac_user": [
+    [
+     "Rafi asks to shift an hour later, and the school sports day is at six",
+     "Deepa moves it",
+     "refused before anything is erased — the block is still at two"
+    ]
+   ],
+   "ac_api": [
+    [
+     "a move into a clash",
+     "POST /move",
+     "409 overlap; from/to unchanged"
+    ],
+    [
+     "a valid move",
+     "POST /move",
+     "200; the old interval free, new taken, one row"
+    ],
+    [
+     "a failure injected after the check",
+     "POST /move",
+     "rolled back"
+    ],
+    [
+     "clock after from",
+     "POST /move",
+     "409 already-started"
+    ]
+   ],
+   "done": [
+    "Move endpoint, self-excluded check, atomic, tested with rollback."
+   ],
+   "try": {
+    "screen": "booking",
+    "do": "Open a booking card (click its block on The day), then use the Move form on the card: first into a clash with the next booking on that ground, then into a free hour.",
+    "see": "Into a clash: 409 overlap, and the block is still where it was — nothing was erased first. Into free time: 200 with the new held range, the block in its new place and the old interval free (the check excluded the booking itself, or every move would refuse itself). A failure injected after the check leaves the row untouched (tests/test_moves.py: the UPDATE and the event roll back together)."
+   }
+  },
+  {
+   "id": "B-06",
+   "title": "A planner nobody can erase",
+   "scene": "Two clubs arrive at the same ground. The planner shows one booking, cleanly written, and nobody can say what was rubbed out.",
+   "build": "An append-only log: one row per transition — requested, confirmed, moved, cancelled — written in the same transaction as the change, never updated and never deleted.",
+   "follows": "A move rewrites history; this is what stops it being rewritten silently, and the log that proves nothing overlapped.",
+   "story": {
+    "as": "municipal officer",
+    "want": "see every request, confirmation, move and cancellation in a record nobody can erase",
+    "so": "a disputed Saturday has one account of what happened"
+   },
+   "summary": "Every transition is written to an append-only log in the same transaction, readable per booking.",
+   "endpoints": [
+    {
+     "m": "GET",
+     "p": "/bookings/{booking_id}",
+     "q": null,
+     "req": null,
+     "res": {
+      "booking_id": "BK0412",
+      "ground": "A",
+      "event": "league",
+      "from": "2026-10-03T15:00:00Z",
+      "to": "2026-10-03T18:00:00Z",
+      "ground_held_from": "2026-10-03T14:20:00Z",
+      "ground_held_to": "2026-10-03T18:30:00Z",
+      "state": "confirmed",
+      "events": [
+       {
+        "at": "2026-10-01T08:00:00Z",
+        "kind": "requested",
+        "from": "2026-10-03T14:00:00Z",
+        "to": "2026-10-03T17:00:00Z"
+       },
+       {
+        "at": "2026-10-01T09:00:00Z",
+        "kind": "confirmed"
+       },
+       {
+        "at": "2026-10-01T10:00:00Z",
+        "kind": "moved",
+        "from": "2026-10-03T15:00:00Z",
+        "to": "2026-10-03T18:00:00Z",
+        "previous_from": "2026-10-03T14:00:00Z",
+        "previous_to": "2026-10-03T17:00:00Z"
+       }
+      ]
+     },
+     "codes": [
+      [
+       "200",
+       "",
+       "events in `at` order"
+      ],
+      [
+       "404",
+       "/errors/no-such-booking",
+       "no such booking at this venue"
+      ]
+     ]
+    }
+   ],
+   "data": [
+    "events(id, venue_id, booking_id, kind requested|confirmed|moved|cancelled|expired|charged|invoiced|rechecked, at, actor_id, data json) — insert only; immutability enforced and tested"
+   ],
+   "rules": [
+    "Written in the same transaction; a rolled-back move leaves no `moved` event.",
+    "Events carry ids, intervals and facts — never the club's name, phone or email.",
+    "The booking's `events` are the only history shown.",
+    "Event rows are inserted with a plain INSERT in the same session transaction as the change; the events model has no update path."
+   ],
+   "ac_user": [
+    [
+     "two clubs arrive at the same ground",
+     "Sabu opens both bookings",
+     "he sees exactly what was requested, moved and confirmed, and when — nothing rubbed out"
+    ]
+   ],
+   "ac_api": [
+    [
+     "a move",
+     "commits",
+     "one `moved` event with old and new intervals"
+    ],
+    [
+     "a failed move",
+     "rollback",
+     "no event"
+    ],
+    [
+     "any event",
+     "UPDATE/DELETE",
+     "refused"
+    ]
+   ],
+   "done": [
+    "Every transition logged in-transaction; immutability enforced; GET returns ordered events."
+   ],
+   "try": {
+    "screen": "booking",
+    "do": "Open a booking you requested, confirmed, moved and cancelled.",
+    "see": "The timeline: requested (with the interval), confirmed, moved (old and new intervals), cancelled (late or not) — each written in the same transaction as its change, in `at` order. Nothing can be edited: the database refuses UPDATE and DELETE on events (triggers, tested). No event carries the club, only ids, intervals and facts."
+   }
+  },
+  {
+   "id": "B-07",
+   "title": "One file becomes an app",
+   "scene": "A club with a website asks whether it can request slots directly instead of telephoning Deepa.",
+   "build": "Routers for grounds, bookings and moves; one exception handler so every refusal has the same shape; tags, summaries and documented errors, so /docs is something a club's developer could follow.",
+   "follows": "The rules so far have piled into one module. The problem+json shape is settled here.",
+   "story": {
+    "as": "club's web developer",
+    "want": "read one set of API docs where every refusal has the same shape",
+    "so": "clubs can request slots online without guessing what an error means"
+   },
+   "summary": "Routers for grounds, bookings and moves, one error shape, and docs a club's developer can build against.",
+   "endpoints": [
+    {
+     "m": "GET",
+     "p": "/docs",
+     "q": null,
+     "req": null,
+     "res": null,
+     "codes": [
+      [
+       "200",
+       "",
+       "every endpoint with summary, tag (grounds, bookings, moves) and documented errors"
+      ]
+     ]
+    },
+    {
+     "m": "GET",
+     "p": "/openapi.json",
+     "q": null,
+     "req": null,
+     "res": null,
+     "codes": [
+      [
+       "200",
+       "",
+       "every 4xx in the codes tables on its endpoint"
+      ]
+     ]
+    }
+   ],
+   "data": [
+    "no new tables"
+   ],
+   "rules": [
+    "Routers: grounds, bookings, moves under `groundbook/routers/`; services hold no FastAPI imports.",
+    "One handler for every error class.",
+    "Every endpoint documents its errors with an example.",
+    "`APIRouter` per resource, mounted from one `app.py`; services and rules import nothing from FastAPI."
+   ],
+   "ac_user": [
+    [
+     "a club's developer",
+     "opens the docs",
+     "every call and refusal with examples — no phone call to Deepa"
+    ]
+   ],
+   "ac_api": [
+    [
+     "the spec",
+     "POST /bookings",
+     "overlap, bad-interval, 404s documented"
+    ],
+    [
+     "an unexpected exception",
+     "any",
+     "500 problem+json, type `/errors/internal`, no trace"
+    ]
+   ],
+   "done": [
+    "Modular layout; docs; one handler."
+   ],
+   "try": {
+    "screen": "api",
+    "do": "Read the table, press Send on GET /venues/deccan/grounds, then open /docs.",
+    "see": "Eight endpoints under three resource routers (grounds, bookings, moves), each with a summary and exactly the answers it can give: its refusals as problem+json examples — overlap with `clashes_with`, bad-interval with `opens`/`closes`, the 404s — and the generic 500. The answer to Send appears under the table. An unknown path or a wrong method is problem+json too; an unexpected exception is a 500 problem with no trace."
+   }
+  },
+  {
+   "id": "B-08",
+   "title": "The rule table, and then the rule changes",
+   "scene": "The city decides buffers should differ by event type: twenty minutes for a practice session, two hours for a sports day.",
+   "build": "A parametrised table of every refusal the planner can give, run through the test client with the clock overridden — then change the buffers (a uniform 40/30 table against each event type's own) and watch which rows move.",
+   "follows": "The refusals exist and time can be moved, so the buffer rule can be changed with evidence rather than hope.",
+   "story": {
+    "as": "municipal officer",
+    "want": "set buffers per event type and see exactly which rules moved",
+    "so": "a policy change does not quietly permit a clash"
+   },
+   "summary": "A parametrised rule table covers every refusal, then the buffers change - a uniform table against each type's own - and only the buffer rows move.",
+   "endpoints": [
+    {
+     "m": "GET",
+     "p": "/settings",
+     "q": null,
+     "req": null,
+     "res": {
+      "hold_hours": 24,
+      "buffers": {
+       "practice": [
+        20,
+        20
+       ],
+       "friendly": [
+        30,
+        20
+       ],
+       "league": [
+        40,
+        30
+       ],
+       "athletics": [
+        60,
+        45
+       ],
+       "tournament": [
+        90,
+        60
+       ],
+       "school_day": [
+        120,
+        120
+       ]
+      }
+     },
+     "codes": [
+      [
+       "200",
+       "",
+       "read-only"
+      ]
+     ]
+    }
+   ],
+   "data": [
+    "event_types.setup_minutes/teardown_minutes are the source of every buffer (loaded with the seed); the table also runs against a uniform 40/30 table, and there is no uniform-buffer setting"
+   ],
+   "rules": [
+    "The table: one row per case — ok / to before from / outside hours / shadow outside hours / overlap on the left buffer / overlap on the right buffer / back-to-back with buffers that just fit / confirm started / cancel over / late cancel / reconfirm cancelled / move into clash / move ok.",
+    "`pytest.mark.parametrize` from a CSV with the buffers as columns; clock via `dependency_overrides`.",
+    "Changing practice to 20/20 and school_day to 120/120 moves exactly the rows tagged `buffer`.",
+    "The table is one `@pytest.mark.parametrize` over `TestClient` with `dependency_overrides` for the clock; the rule change is a settings override in the same test module."
+   ],
+   "ac_user": [
+    [
+     "buffers differ by event type",
+     "a practice follows a league match",
+     "20 minutes is enough; a sports day would need two hours"
+    ]
+   ],
+   "ac_api": [
+    [
+     "the table",
+     "runs",
+     "every refusal type appears; all pass"
+    ],
+    [
+     "buffers changed",
+     "runs",
+     "only `buffer` rows change"
+    ],
+    [
+     "GET /settings",
+     "any",
+     "the live buffer table"
+    ]
+   ],
+   "done": [
+    "Table; per-type buffers; GET /settings."
+   ],
+   "try": {
+    "screen": "rules",
+    "do": "Read the buffer table, then switch the rule-table select between the per-type buffers and the old uniform 40 / 30.",
+    "see": "Two rows move, both tagged `buffer`: a practice after a league now fits (20 minutes of setup is enough) and a school sports day after a league no longer does (it needs two hours). Every other row — every refusal type, the transitions, the moves — is unchanged. tests/rules.csv runs the same 24 cases under both seed tables, and a test holds this screen's copy equal to it; GET /settings shows the live buffers and the hold."
+   }
+  },
+  {
+   "id": "B-09",
+   "title": "It runs on the office machine",
+   "scene": "Deepa's office has one PC that also runs the property tax software. Nobody is installing Python on it.",
+   "build": "A Dockerfile for the app, an image built and run with a mapped port, and HOST=0.0.0.0 so Sabu's tablet at the gate can reach it.",
+   "follows": "The app is finished and tested; this is the first day it leaves your laptop.",
+   "story": {
+    "as": "booking clerk",
+    "want": "run the planner from a single image on the office machine",
+    "so": "I do not need a developer to start it"
+   },
+   "summary": "The app builds into an image and runs in a container on the office PC, reachable from Sabu's gate tablet.",
+   "endpoints": [
+    {
+     "m": "GET",
+     "p": "/healthz",
+     "q": null,
+     "req": null,
+     "res": {
+      "status": "ok"
+     },
+     "codes": [
+      [
+       "200",
+       "",
+       "up"
+      ]
+     ]
+    }
+   ],
+   "data": [
+    "no new tables"
+   ],
+   "rules": [
+    "Dockerfile: `python:3.12-slim`, lock-file install, `HOST=0.0.0.0`, `PORT=8080`, `CMD uvicorn groundbook.app:app --host 0.0.0.0 --port 8080`.",
+    "Two commands; README shows them.",
+    "The tablet reaches the day strip on the PC's IP:8080."
+   ],
+   "ac_user": [
+    [
+     "no Python or Java on the office PC",
+     "two commands",
+     "Sabu's tablet shows Saturday"
+    ]
+   ],
+   "ac_api": [
+    [
+     "clean machine",
+     "build",
+     "ok"
+    ],
+    [
+     "running",
+     "health from another host",
+     "200"
+    ],
+    [
+     "running",
+     "GET /grounds from another host",
+     "200, 4 grounds"
+    ]
+   ],
+   "done": [
+    "Image; mapped port; README."
+   ],
+   "try": {
+    "screen": "runtime",
+    "do": "Run the commands under How it runs, then open this page from another machine on the office network.",
+    "see": "An image from python:3.12-slim; the container listens on $HOST:$PORT, 0.0.0.0:8080 unless the env-file says otherwise, so the day strip is reachable at http://<office-pc-ip>:8080/ from the gate tablet; the health dot is GET /healthz answering ok."
+   }
+  },
+  {
+   "id": "B-10",
+   "title": "It survives being switched off",
+   "scene": "The office PC is restarted for an update and Saturday's bookings are gone on a Friday afternoon.",
+   "build": "A volume for the data, configuration through an env-file rather than baked into the image, a .dockerignore, logs to stdout — and the README that walks one booking from request to the gate being unlocked.",
+   "follows": "The image ran once; this makes it something the municipal office can be handed.",
+   "story": {
+    "as": "booking clerk",
+    "want": "restart the office machine without losing Saturday's bookings",
+    "so": "an overnight update is not a Friday afternoon emergency"
+   },
+   "summary": "Data survives a restart, configuration from an env-file, logs to stdout, README walks one booking from request to the gate.",
+   "endpoints": [],
+   "data": [
+    "SQLite on a volume at /data; DATABASE_URL=sqlite:////data/groundbook.db",
+    ".dockerignore"
+   ],
+   "rules": [
+    "Every setting via `--env-file`.",
+    "Logs to stdout.",
+    "README: build, run, and the curl calls for request → confirm → day strip → gate (GET /bookings/{booking_id}, what Sabu checks before he unlocks the gate).",
+    "Settings are read by pydantic-settings from the environment; the env-file is the only configuration input."
+   ],
+   "ac_user": [
+    [
+     "the office PC restarts for an update on Friday",
+     "it comes back",
+     "Saturday's bookings are all there"
+    ]
+   ],
+   "ac_api": [
+    [
+     "bookings",
+     "rm + run same volume",
+     "GET /bookings/{id} 200"
+    ],
+    [
+     "HOLD_HOURS=48 in env-file",
+     "start",
+     "GET /settings shows 48"
+    ],
+    [
+     "docker logs",
+     "any",
+     "every request and event; nothing under /app"
+    ]
+   ],
+   "done": [
+    "Volume, env-file, .dockerignore, stdout, README."
+   ],
+   "try": {
+    "screen": "runtime",
+    "do": "Pick the Saturday that has bookings and press Before restart. Run `docker rm -f groundbook` and the `docker run` line shown beside the buttons, then press After restart. Change HOLD_HOURS in the env-file and restart again.",
+    "see": "After restart says \"unchanged\": every booking on the four grounds that Saturday came back from the groundbook-data volume, not from the container (any difference would be listed). The rule book shows the new hold with no rebuild — the env-file is the only configuration input. `docker logs` shows one line per request and per event; nothing is written under /app."
+   }
+  }
+ ]
+}

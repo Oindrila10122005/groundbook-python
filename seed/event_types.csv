@@ -1,0 +1,7 @@
+code,name,setup_minutes,teardown_minutes
+practice,Practice,20,20
+friendly,Friendly match,30,20
+league,League match,40,30
+athletics,Athletics meet,60,45
+tournament,Tournament,90,60
+school_day,School sports day,120,120

@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroundBook</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <h1>GroundBook</h1>
+    <p class="sub">A municipal sports complex: bookings with setup and teardown buffers that may never overlap.</p>
+    <nav id="nav">
+      <button data-screen="day">The day</button>
+      <button data-screen="book">Book</button>
+      <button data-screen="booking">Booking</button>
+      <button data-screen="rules">Rule book</button>
+      <button data-screen="api">API</button>
+      <button data-screen="runtime">Runtime</button>
+      <button id="walkbtn" class="walkbtn">Walkthrough</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section id="walk" class="walk" hidden>
+  <div class="walkhead">
+    <span class="muted" id="walkpos"></span>
+    <span class="walknav"><button id="walkprev">← Previous</button><button id="walknext">Next →</button><button id="walkclose">Close</button></span>
+  </div>
+  <div class="walkid" id="walkid"></div>
+  <h2 id="walktitle"></h2>
+  <p class="scene" id="walkscene"></p>
+  <div class="walkus" id="walkus"></div>
+  <div class="walktry" id="walktry"></div>
+  <dl class="walkdl">
+    <dt>What you build</dt><dd id="walkbuild"></dd>
+    <dt>Why it follows</dt><dd id="walkfollows"></dd>
+  </dl>
+  <details class="walkdet"><summary>Backend contract — endpoints, storage and rules</summary><div id="walkcontract"></div></details>
+  <details class="walkdet" open><summary>Acceptance — as the end user sees it</summary><div id="walkacuser"></div></details>
+  <details class="walkdet"><summary>Acceptance — at the API and database</summary><div id="walkacapi"></div></details>
+  <details class="walkdet"><summary>Definition of done</summary><div id="walkdone"></div></details>
+</section>
+
+<section id="day" class="screen">
+  <h2>The day</h2>
+  <p class="muted">Four grounds at the Deccan complex. The solid bar is the match; the lighter bar either side is the ground held for setup and teardown, read off the event type — never stored. Click a block to open its booking card.</p>
+  <div class="row">
+    <button type="button" id="dayprev" class="btn">◀</button>
+    <label>Date <input id="daydate" type="date"></label>
+    <button type="button" id="daynext" class="btn">▶</button>
+    <span id="dayline" class="muted"></span>
+  </div>
+  <div id="strips"></div>
+  <div id="legend" class="card"><b>Event types</b> <span class="muted">— setup / teardown minutes, from GET /venues/deccan/event-types</span><div id="legendrow" class="row"></div></div>
+</section>
+
+<section id="book" class="screen">
+  <h2>Book</h2>
+  <form id="bookform" class="card">
+    <b>Request a slot</b> <span class="muted">— Deepa takes the call; the event type brings its buffers</span>
+    <label>Ground <select name="ground" id="bookground"></select></label>
+    <label>Event type <select name="event" id="bookevent"></select></label>
+    <label>Date <input name="date" type="date"></label>
+    <div class="row"><label>From <input name="from" value="14:00" size="5"></label> <label>To <input name="to" value="17:00" size="5"></label></div>
+    <label>Club <input name="club" value="Ambedkar Nagar CC"></label>
+    <button type="submit">Request</button>
+    <div id="bookok" class="card ok" hidden></div>
+    <div id="bookno" class="card no" hidden></div>
+  </form>
+  <h3>When the planner says no</h3>
+  <p class="muted">Every refusal the API documents, read from the live OpenAPI spec. One shape for all of them: <code>type, title, status, detail</code> plus the fields the ticket names. Any call can also answer 500 <code>/errors/internal</code>, with no trace.</p>
+  <table class="tbl" id="refusals"></table>
+</section>
+
+<section id="booking" class="screen">
+  <h2>Booking</h2>
+  <form id="bookingform" class="row">
+    <label>Booking id <input name="id" placeholder="BK0001" size="8"></label>
+    <button type="submit">Open</button>
+  </form>
+  <div id="bookingcard" class="card" hidden>
+    <div id="bookinghead"></div>
+    <div id="bookingactions" hidden>
+      <div class="row"><button type="button" id="confirmbtn" class="btn">Confirm</button><button type="button" id="cancelbtn" class="btn">Cancel</button>
+        <span class="muted">confirm before it starts; cancel before it ends (late once it has begun)</span></div>
+      <div id="transout" hidden></div>
+      <form id="moveform" class="row">
+        <b>Move</b>
+        <label>Date <input name="date" type="date"></label>
+        <label>From <input name="from" size="5"></label> <label>To <input name="to" size="5"></label>
+        <button type="submit">Move</button>
+        <span class="muted">the whole new interval, both buffers, re-checked before anything is written</span>
+      </form>
+      <div id="moveout" hidden></div>
+    </div>
+    <p class="muted">Every transition, in order — the only history there is. The database refuses to change or delete a row.</p>
+    <ul class="timeline" id="timeline"></ul>
+  </div>
+</section>
+
+<section id="rules" class="screen">
+  <h2>Rule book</h2>
+  <div class="card"><dl id="settings"></dl></div>
+  <h3>Buffers per event type</h3>
+  <p class="muted">The live table from <code>GET /settings</code>, read-only. A shadow is <code>from − setup</code> to <code>to + teardown</code>, and two shadows clash when <code>held_from₁ &lt; held_to₂ and held_from₂ &lt; held_to₁</code>.</p>
+  <table class="tbl" id="buffers"></table>
+  <h3>The rule table</h3>
+  <p class="muted">The rows the test suite runs (<code>tests/rules.csv</code>; a test holds this copy equal to it) under two buffer tables: the old uniform 40 / 30 for every event type, and the per-type table in force. Change the select to see which rows move — only the two tagged <code>buffer</code>.</p>
+  <div class="row"><label>Buffers <select id="rulemode"><option value="per_type">Per event type (in force)</option><option value="uniform">Uniform 40 / 30</option></select></label></div>
+  <table class="tbl" id="ruletable"></table>
+</section>
+
+<section id="api" class="screen">
+  <h2>API</h2>
+  <p class="muted">Every call, from the live OpenAPI spec. Send calls it with a sample body; the answer appears below the table. Full docs at <a href="/docs">/docs</a>.</p>
+  <table class="tbl" id="endpoints"></table>
+  <pre id="apiout" class="out" hidden></pre>
+</section>
+
+<section id="runtime" class="screen">
+  <h2>Runtime</h2>
+  <div class="card">
+    <p><span id="healthdot" class="dot"></span> <span id="healthtext">checking…</span></p>
+    <p class="muted" id="runtimeline"></p>
+  </div>
+  <h3>How it runs</h3>
+  <div class="card">
+    <p>The office PC runs the planner from one image; Sabu's tablet at the gate reaches it on that PC's IP, port 8080. Data lives on a volume, every setting comes from the env-file, logs go to stdout.</p>
+<pre>docker build -t groundbook .
+docker run -d --name groundbook -p 8080:8080 -v groundbook-data:/data --env-file .env groundbook
+docker logs -f groundbook</pre>
+    <p>The image is built from the Dockerfile you write.</p>
+  </div>
+  <h3>Restart the container</h3>
+  <div class="card">
+    <p>This page cannot restart the container — run the two commands yourself. Press <b>Before restart</b> to keep a copy of Saturday's bookings on all four grounds in this browser, restart, then press <b>After restart</b> to compare.</p>
+    <div class="row">
+      <label>Saturday <input id="restartdate" type="date"></label>
+      <button type="button" id="beforebtn" class="btn">Before restart</button>
+      <button type="button" id="afterbtn" class="btn">After restart</button>
+    </div>
+<pre>docker rm -f groundbook
+docker run -d --name groundbook -p 8080:8080 -v groundbook-data:/data --env-file .env groundbook</pre>
+    <div id="restartout" hidden></div>
+  </div>
+</section>
+
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>
