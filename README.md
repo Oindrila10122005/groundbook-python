@@ -10,7 +10,7 @@ A municipal sports complex: bookings with setup and teardown buffers that may ne
 - [x] Ticket 2 · A club asks for a slot
 - [x] Ticket 3 · Confirm, cancel, and the hour that has already gone
 - [x] Ticket 4 · The refusals, once the shadows are counted
-- [ ] Ticket 5 · Moving a booking without breaking the day
+- [x] Ticket 5 · Moving a booking without breaking the day
 - [ ] Ticket 6 · A planner nobody can erase
 - [ ] Ticket 7 · One file becomes an app
 - [ ] Ticket 8 · The rule table, and then the rule changes
