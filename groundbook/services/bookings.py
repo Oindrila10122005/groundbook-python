@@ -1,4 +1,4 @@
-"""Request.
+"""Request, confirm and cancel.
 Every transition is one session transaction."""
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -7,6 +7,11 @@ from sqlalchemy.orm import Session
 
 from ..clock import Clock, as_utc
 from ..errors import (
+    AlreadyCancelled,
+    AlreadyConfirmed,
+    AlreadyOver,
+    AlreadyStarted,
+    Cancelled,
     NoSuchBooking,
 )
 from ..ids import booking_internal, booking_public
@@ -35,6 +40,11 @@ def get_booking(session: Session, venue: Venue, public_id: str) -> Booking:
         raise NoSuchBooking(f"There is no booking '{public_id}' at {venue.slug}")
     return booking
 
+
+def _z(dt: datetime) -> str:
+    return as_utc(dt).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def request(session: Session, venue: Venue, ground_code: str, event_code: str, from_at: datetime, to_at: datetime, club: str,
             clock: Clock, settings: Settings) -> Placed:
     """404 ground, 400 event type, 400 bad-interval; else a requested booking with its hold."""
@@ -53,3 +63,35 @@ def placed(session: Session, booking: Booking) -> Placed:
     ground = session.get(Ground, booking.ground_id)
     event_type = session.get(EventType, booking.event_type_id)
     return Placed(booking, ground, event_type, *shadow(booking.from_at, booking.to_at, event_type))
+
+
+def confirm(session: Session, venue: Venue, public_id: str, clock: Clock) -> Booking:
+    """Requested and now < from; a cancelled booking is its own refusal."""
+    booking = get_booking(session, venue, public_id)
+    now = clock.now()
+    if booking.state == "cancelled":
+        raise Cancelled(f"{public_id} was cancelled; request a new booking")
+    if booking.state == "confirmed":
+        raise AlreadyConfirmed(f"{public_id} was confirmed at {_z(booking.confirmed_at)}")
+    if now >= as_utc(booking.from_at):
+        raise AlreadyStarted(f"{public_id} began at {_z(booking.from_at)}; it can no longer be confirmed")
+    booking.state = "confirmed"
+    booking.confirmed_at = now
+    session.commit()
+    return booking
+
+
+def cancel(session: Session, venue: Venue, public_id: str, clock: Clock) -> Booking:
+    """Requested or confirmed and now < to; from `from` onwards it is a late cancel, allowed and flagged."""
+    booking = get_booking(session, venue, public_id)
+    now = clock.now()
+    if booking.state == "cancelled":
+        raise AlreadyCancelled(f"{public_id} was cancelled at {_z(booking.cancelled_at)}")
+    if now >= as_utc(booking.to_at):
+        raise AlreadyOver(f"{public_id} ended at {_z(booking.to_at)}; it can no longer be cancelled")
+    late = now >= as_utc(booking.from_at)
+    booking.state = "cancelled"
+    booking.cancelled_at = now
+    booking.late_cancel = late
+    session.commit()
+    return booking

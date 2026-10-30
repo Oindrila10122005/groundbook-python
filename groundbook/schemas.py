@@ -113,3 +113,15 @@ class BookingOut(BaseModel):
     ground_held_from: UtcZ
     ground_held_to: UtcZ
     state: BookingState
+
+class ConfirmOut(BaseModel):
+    booking_id: str
+    state: BookingState
+    confirmed_at: UtcZ
+
+
+class CancelOut(BaseModel):
+    booking_id: str
+    state: BookingState
+    cancelled_at: UtcZ
+    late: bool

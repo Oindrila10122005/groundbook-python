@@ -13,8 +13,8 @@ class SystemClock(Clock):
 
 
 class FixedClock(Clock):
-    """A clock a test controls. `advance` moves it; `set` pins it.
-    Your tests install it in place of the real clock."""
+    """A clock a test controls. `advance` moves it; `set` pins it. It lives beside the real clock because the ticket asks for
+    `Depends(get_clock)` "overridable in tests": this is the override the tests install."""
 
     def __init__(self, at: datetime):
         self._at = at

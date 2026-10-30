@@ -34,6 +34,26 @@ class NoSuchBooking(DomainError):
     status, type, title = 404, "/errors/no-such-booking", "No such booking at this venue"
 
 
+class AlreadyStarted(DomainError):
+    status, type, title = 409, "/errors/already-started", "The interval has begun; it can no longer be confirmed or moved"
+
+
+class AlreadyOver(DomainError):
+    status, type, title = 409, "/errors/already-over", "The interval has ended; it can no longer be cancelled"
+
+
+class Cancelled(DomainError):
+    status, type, title = 409, "/errors/cancelled", "A cancelled booking cannot be confirmed or moved; request a new one"
+
+
+class AlreadyConfirmed(DomainError):
+    status, type, title = 409, "/errors/already-confirmed", "The booking is already confirmed"
+
+
+class AlreadyCancelled(DomainError):
+    status, type, title = 409, "/errors/already-cancelled", "The booking is already cancelled"
+
+
 #  and (status, type, title) of the refusals the framework raises before a route runs.
 VALIDATION = (422, "/errors/validation", "The request body is not valid")
 FILTER = (400, "/errors/validation", "Invalid query parameter")
