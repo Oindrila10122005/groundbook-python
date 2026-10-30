@@ -34,6 +34,11 @@ class NoSuchBooking(DomainError):
     status, type, title = 404, "/errors/no-such-booking", "No such booking at this venue"
 
 
+class Overlap(DomainError):
+    """The shadow clashes with another live booking's shadow; `clashes_with` lists them with their held ranges."""
+    status, type, title = 409, "/errors/overlap", "The interval, with its buffers, overlaps another booking"
+
+
 class AlreadyStarted(DomainError):
     status, type, title = 409, "/errors/already-started", "The interval has begun; it can no longer be confirmed or moved"
 
