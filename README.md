@@ -7,7 +7,7 @@ A municipal sports complex: bookings with setup and teardown buffers that may ne
 ## Progress
 
 - [x] Ticket 1 · The complex, as a day you can look at
-- [ ] Ticket 2 · A club asks for a slot
+- [x] Ticket 2 · A club asks for a slot
 - [ ] Ticket 3 · Confirm, cancel, and the hour that has already gone
 - [ ] Ticket 4 · The refusals, once the shadows are counted
 - [ ] Ticket 5 · Moving a booking without breaking the day

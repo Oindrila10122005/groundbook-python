@@ -1,6 +1,11 @@
 """Venues, grounds and event types. A shadow is never stored: there is deliberately no held_from / held_to
 column anywhere."""
+"""Venues, grounds, event types and bookings. A booking's shadow (interval +/- the event type's buffers)
+is computed on read from these rows; there is deliberately no held_from / held_to column anywhere."""
+from datetime import datetime
+
 from sqlalchemy import (
+    DateTime,
     ForeignKey,
     Integer,
     String,
@@ -44,3 +49,19 @@ class EventType(Base):
     name: Mapped[str] = mapped_column(String(60))
     setup_minutes: Mapped[int] = mapped_column(Integer)
     teardown_minutes: Mapped[int] = mapped_column(Integer)
+
+
+
+class Booking(Base):
+    """One row per request. The interval is [from_at, to_at); the shadow is derived."""
+    __tablename__ = "bookings"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    venue_id: Mapped[int] = mapped_column(ForeignKey("venues.id"))
+    ground_id: Mapped[int] = mapped_column(ForeignKey("grounds.id"))
+    event_type_id: Mapped[int] = mapped_column(ForeignKey("event_types.id"))
+    club_name: Mapped[str] = mapped_column(String(80))
+    from_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    to_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    state: Mapped[str] = mapped_column(String(12))                     # requested | confirmed | cancelled | expired
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    hold_until: Mapped[datetime] = mapped_column(DateTime(timezone=True))

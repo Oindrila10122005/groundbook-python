@@ -1,4 +1,3 @@
-"""The clock is a dependency: every time-based rule reads it, so a test can move time instead of waiting."""
 """The app's clock, so tests can set the time by hand."""
 from datetime import datetime, timedelta, timezone
 
@@ -33,3 +32,8 @@ class FixedClock(Clock):
 
 def get_clock() -> Clock:
     return SystemClock()
+
+
+def as_utc(dt: datetime) -> datetime:
+    """SQLite hands naive datetimes back; everything the app stores is UTC."""
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)

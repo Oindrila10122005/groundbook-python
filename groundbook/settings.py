@@ -1,5 +1,3 @@
-"""One settings object, read once at start-up. Nothing is hard-coded.
-The buffers live on the event types (loaded from seed/event_types.csv), never in a setting."""
 """Settings for groundbook, all in one place."""
 
 from pydantic import Field
@@ -14,6 +12,7 @@ class Settings(BaseSettings):
     )
 
     database_url: str = "sqlite:///./groundbook.db"
+    hold_hours: int = Field(default=24, ge=1)      # hold_until = requested_at + HOLD_HOURS
     seed_dir: str = "seed"
     host: str = "0.0.0.0"                          #  and reachable from the gate tablet, not only from the PC itself
     port: int = Field(default=8080, ge=1, le=65535)
