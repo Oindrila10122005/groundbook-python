@@ -156,3 +156,8 @@ class MoveOut(BaseModel):
     ground_held_from: UtcZ
     ground_held_to: UtcZ
     moved_at: UtcZ
+
+
+class SettingsOut(BaseModel):
+    hold_hours: int
+    buffers: dict[str, tuple[int, int]]

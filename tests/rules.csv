@@ -1,0 +1,25 @@
+case,tag,setup,action,status_uniform,type_uniform,status_per_type,type_per_type
+ok,ok,,request A league 14:00 17:00,201,,201,
+to_before_from,interval,,request A league 17:00 14:00,400,/errors/bad-interval,400,/errors/bad-interval
+outside_hours,interval,,request A league 05:00 07:00,400,/errors/bad-interval,400,/errors/bad-interval
+shadow_outside_hours,interval,,request A league 06:20 08:00,400,/errors/bad-interval,400,/errors/bad-interval
+malformed,validation,,request_without_from A league 17:00,422,/errors/validation,422,/errors/validation
+bad_day_date,validation,,day A 2026-13-40,400,/errors/validation,400,/errors/validation
+no_such_event_type,event,,request A concert 14:00 17:00,400,/errors/no-such-event-type,400,/errors/no-such-event-type
+no_such_ground,ground,,request Z league 14:00 17:00,404,/errors/no-such-ground,404,/errors/no-such-ground
+no_such_venue,venue,,grounds mumbai,404,/errors/no-such-venue,404,/errors/no-such-venue
+overlap_left_buffer,overlap,request A league 14:00 16:00,request A league 12:00 13:30,409,/errors/overlap,409,/errors/overlap
+overlap_right_buffer,overlap,request A league 14:00 16:00,request A league 16:00 18:00,409,/errors/overlap,409,/errors/overlap
+back_to_back_just_fits,overlap,request A league 14:00 16:00,request A league 17:10 19:00,201,,201,
+confirm_ok,confirm,request A league 14:00 17:00,confirm 1,200,,200,
+confirm_started,confirm,request A league 14:00 17:00;clock sat 14:20,confirm 1,409,/errors/already-started,409,/errors/already-started
+confirm_twice,confirm,request A league 14:00 17:00;confirm 1,confirm 1,409,/errors/already-confirmed,409,/errors/already-confirmed
+cancel_over,cancel,request A league 14:00 17:00;clock sat 17:30,cancel 1,409,/errors/already-over,409,/errors/already-over
+late_cancel,cancel,request A league 14:00 17:00;clock sat 14:20,cancel 1,200,,200,
+cancel_twice,cancel,request A league 14:00 17:00;cancel 1,cancel 1,409,/errors/already-cancelled,409,/errors/already-cancelled
+reconfirm_cancelled,cancelled,request A league 14:00 17:00;cancel 1,confirm 1,409,/errors/cancelled,409,/errors/cancelled
+no_such_booking,booking,,confirm BK9999,404,/errors/no-such-booking,404,/errors/no-such-booking
+move_into_clash,move,request A league 14:00 17:00;request A league 18:30 20:30,move 1 15:00 18:00,409,/errors/overlap,409,/errors/overlap
+move_ok,move,request A league 14:00 17:00,move 1 15:00 18:00,200,,200,
+practice_after_league,buffer,request A league 14:00 16:00,request A practice 17:00 18:00,409,/errors/overlap,201,
+school_day_after_league,buffer,request A league 08:00 10:00,request A school_day 11:30 15:30,201,,409,/errors/overlap

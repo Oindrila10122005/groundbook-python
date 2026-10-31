@@ -23,6 +23,7 @@ ANSWERS = {
     ("post", "/bookings/{booking_id}/confirm"): {"200", "404", "409", "500"},
     ("post", "/bookings/{booking_id}/cancel"): {"200", "404", "409", "500"},
     ("post", "/bookings/{booking_id}/move"): {"200", "400", "404", "409", "422", "500"},
+    ("get", "/settings"): {"200", "500"},
 }
 
 
@@ -31,15 +32,14 @@ def examples(op, status):
     return {ex["type"]: ex for ex in ([content["example"]] if "example" in content else [v["value"] for v in content["examples"].values()])}
 
 
-
-
 def test_docs_render_and_list_every_endpoint_with_a_summary_and_a_tag(client):
     assert client.get("/docs").status_code == 200
     spec = client.get("/openapi.json").json()
     paths = spec["paths"]
     assert set(paths) == {"/venues/{venue}/grounds", "/venues/{venue}/event-types", "/venues/{venue}/grounds/{ground}/day", "/bookings",
-                          "/bookings/{booking_id}", "/bookings/{booking_id}/confirm", "/bookings/{booking_id}/cancel", "/bookings/{booking_id}/move"}
-    assert {t["name"] for t in spec["tags"]} == {"grounds", "bookings", "moves"}
+                          "/bookings/{booking_id}", "/bookings/{booking_id}/confirm", "/bookings/{booking_id}/cancel", "/bookings/{booking_id}/move",
+                          "/settings"}
+    assert {t["name"] for t in spec["tags"]} == {"grounds", "bookings", "moves", "settings"}
     for path, ops in paths.items():
         for op in ops.values():
             assert op.get("summary") and len(op.get("tags", [])) == 1, path
@@ -47,8 +47,8 @@ def test_docs_render_and_list_every_endpoint_with_a_summary_and_a_tag(client):
     assert tags == {("get", "/venues/{venue}/grounds"): "grounds", ("get", "/venues/{venue}/event-types"): "grounds",
                     ("get", "/venues/{venue}/grounds/{ground}/day"): "grounds", ("post", "/bookings"): "bookings",
                     ("get", "/bookings/{booking_id}"): "bookings", ("post", "/bookings/{booking_id}/confirm"): "bookings",
-                    ("post", "/bookings/{booking_id}/cancel"): "bookings", ("post", "/bookings/{booking_id}/move"): "moves"}
-
+                    ("post", "/bookings/{booking_id}/cancel"): "bookings", ("post", "/bookings/{booking_id}/move"): "moves",
+                    ("get", "/settings"): "settings"}
 
 
 def test_every_refusal_is_documented_with_a_problem_example(client):
@@ -72,7 +72,6 @@ def test_every_refusal_is_documented_with_a_problem_example(client):
     assert set(examples(spec["paths"]["/bookings/{booking_id}"]["get"], "404")) == {"/errors/no-such-booking"}
     for path in ("/venues/{venue}/grounds", "/venues/{venue}/event-types"):
         assert set(examples(spec["paths"][path]["get"], "404")) == {"/errors/no-such-venue"}
-
 
 
 def test_no_operation_documents_an_answer_it_cannot_send(client):
@@ -99,7 +98,6 @@ def test_the_201_documents_its_location_header(client):
     assert created["content"]["application/json"]["schema"]["$ref"].endswith("/BookingCreatedOut")
 
 
-
 def test_every_4xx_in_the_shared_error_list_is_on_an_endpoint(client):
     spec = client.get("/openapi.json").json()
     documented = set()
@@ -116,7 +114,6 @@ def test_the_type_values_are_frozen():
     types = set(__import__("re").findall(r'"(/errors/[a-z-]+)"', src))
     assert types == ERRORS | {"/errors/no-such-venue", "/errors/no-such-event-type", "/errors/already-confirmed", "/errors/already-cancelled",
                               "/errors/internal", "/errors/domain", "/errors/not-found", "/errors/method-not-allowed", "/errors/http"}
-
 
 
 def test_unexpected_exception_is_a_generic_problem_and_its_path_is_logged(app, client, caplog):
@@ -144,7 +141,6 @@ def test_an_unknown_path_and_a_wrong_method_are_problem_json(client):
     assert client.get("/static/nothing-here.js").json()["type"] == "/errors/not-found"
 
 
-
 def test_services_and_rules_import_nothing_from_fastapi():
     for path in list(( PKG / "services").glob("*.py")) + [PKG / n for n in ("models.py", "clock.py", "ids.py", "errors.py", "settings.py", "schemas.py")]:
         tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -166,8 +162,8 @@ def test_services_and_rules_do_not_pull_in_fastapi_even_indirectly():
 
 
 def test_one_router_per_resource_mounted_from_one_app():
-    assert {p.stem for p in (PKG / "routers").glob("*.py")} == {"__init__", "grounds", "bookings", "moves"}
+    assert {p.stem for p in (PKG / "routers").glob("*.py")} == {"__init__", "grounds", "bookings", "moves", "settings"}
     app_src = (PKG / "app.py").read_text(encoding="utf-8")
-    assert app_src.count("include_router") == 1 and "for r in (grounds.router, bookings.router, moves.router)" in app_src
+    assert app_src.count("include_router") == 1 and "for r in (grounds.router, bookings.router, moves.router, settings_router.router)" in app_src
     for name in ("grounds", "bookings", "moves"):
         assert "APIRouter(" in (PKG / "routers" / f"{name}.py").read_text(encoding="utf-8")

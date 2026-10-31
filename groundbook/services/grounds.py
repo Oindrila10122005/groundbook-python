@@ -40,6 +40,11 @@ def list_event_types(session: Session, venue: Venue) -> list[EventType]:
     return list(session.scalars(select(EventType).where(EventType.venue_id == venue.id).order_by(EventType.id)))
 
 
+def buffers(session: Session, venue: Venue) -> dict[str, tuple[int, int]]:
+    """The live buffer table, per event type."""
+    return {t.code: (t.setup_minutes, t.teardown_minutes) for t in list_event_types(session, venue)}
+
+
 def hours_for(ground: Ground, day: date) -> tuple[str, str]:
     """Sunday uses the sunday_* columns."""
     if day.weekday() == 6:
@@ -57,6 +62,7 @@ def _at(day: date, hhmm: str) -> datetime:
     hour, minute = (int(x) for x in hhmm.split(":"))
     return datetime.combine(day, time(hour, minute), tzinfo=timezone.utc)
 
+
 def check_interval(ground: Ground, event_type: EventType, from_at: datetime, to_at: datetime, now: datetime) -> tuple[datetime, datetime]:
     """A valid body that asks for something impossible is 400 bad-interval. Returns the shadow when it fits."""
     from_at, to_at = as_utc(from_at), as_utc(to_at)
@@ -73,6 +79,7 @@ def check_interval(ground: Ground, event_type: EventType, from_at: datetime, to_
                           f"{held_from.strftime('%H:%M')}-{held_to.strftime('%H:%M')}; ground {ground.code} opens at {opens} and closes at {closes} "
                           f"on {from_at.strftime('%A')}", opens=opens, closes=closes)
     return held_from, held_to
+
 
 @dataclass
 class Block:
