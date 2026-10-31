@@ -128,6 +128,7 @@ def test_unexpected_exception_is_a_generic_problem_and_its_path_is_logged(app, c
     assert "secret detail" not in r.text and "Traceback" not in r.text
     lines = [rec.getMessage() for rec in caplog.records]
     assert "unhandled error method=GET path=/boom" in lines, "the exception is logged with its path"
+    assert "request method=GET path=/boom status=500" in lines, "and the request still gets its one line"
     assert not any("request_id" in line for line in lines)
 
 

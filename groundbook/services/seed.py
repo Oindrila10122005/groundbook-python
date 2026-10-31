@@ -3,12 +3,15 @@ the first request. Idempotent: a second start changes nothing."""
 """Fills the database with its starting data."""
 
 import csv
+import logging
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..models import EventType, Ground, Venue
+
+log = logging.getLogger("groundbook.seed")
 
 VENUE = ("deccan", "Deccan Sports Complex")
 
@@ -31,3 +34,6 @@ def seed(session: Session, seed_dir: str) -> None:
                 session.add(EventType(venue_id=venue.id, code=row["code"], name=row["name"],
                                       setup_minutes=int(row["setup_minutes"]), teardown_minutes=int(row["teardown_minutes"])))
     session.commit()
+    grounds = session.scalar(select(func.count()).select_from(Ground).where(Ground.venue_id == venue.id))
+    types = session.scalar(select(func.count()).select_from(EventType).where(EventType.venue_id == venue.id))
+    log.info("seed complete venue=%s grounds=%s event_types=%s", venue.slug, grounds, types)

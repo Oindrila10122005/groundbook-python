@@ -1,11 +1,13 @@
-"""one set of error handlers, and an OpenAPI document that
+"""one set of error handlers, one log line per request on stdout, and an OpenAPI document that
 lists exactly the answers each call can give."""
 import copy
 import json
+import logging
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -24,6 +26,16 @@ TAGS = [
     {"name": "moves", "description": "A booking moves, the whole new interval re-checked with its buffers"},
     {"name": "settings", "description": "Rules in force, health"},
 ]
+
+log = logging.getLogger("groundbook")
+
+
+def configure_logging() -> None:
+    # and stdout, once: a second create_app (tests, a restart in-process) finds the handler and adds none
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    logging.getLogger().setLevel(logging.INFO)
+    # The middleware below writes the one line per request; uvicorn's own access line would be a second one.
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
 
 def honest_openapi(app: FastAPI):
@@ -54,6 +66,7 @@ def honest_openapi(app: FastAPI):
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
+    configure_logging()
     settings = settings or Settings()
     engine = make_engine(settings.database_url)
 
@@ -62,6 +75,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         init_db(engine)
         with app.state.sessionmaker() as session:
             seed(session, settings.seed_dir)
+        log.info("ready host=%s port=%s database=%s hold_hours=%s", settings.host, settings.port, settings.database_url,
+                 settings.hold_hours)
         yield
         engine.dispose()
 
@@ -69,6 +84,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                   description="A municipal sports complex: bookings with setup and teardown buffers that may never overlap.")
     app.state.settings = settings
     app.state.sessionmaker = make_sessionmaker(engine)
+
+    @app.middleware("http")
+    async def log_request(request: Request, call_next):
+        try:
+            response = await call_next(request)
+        except Exception:
+            # and the unexpected: the outermost handler answers 500 problem+json; the request still gets its line
+            log.info("request method=%s path=%s status=500", request.method, request.url.path)
+            raise
+        log.info("request method=%s path=%s status=%s", request.method, request.url.path, response.status_code)
+        return response
 
     install_handlers(app)
     for r in (grounds.router, bookings.router, moves.router, settings_router.router):

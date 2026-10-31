@@ -15,9 +15,11 @@ def test_health_is_up(client):
 
 def test_dockerfile_matches_the_contract_and_takes_host_and_port_from_the_environment():
     lines = (ROOT / "Dockerfile").read_text(encoding="utf-8").splitlines()
+    text = "\n".join(lines)
     assert "FROM python:3.12-slim" in lines and "RUN pip install --no-cache-dir -r requirements.lock" in lines
     assert "ENV HOST=0.0.0.0 \\" in lines and "    PORT=8080 \\" in lines, "the defaults"
-    assert "EXPOSE 8080" in lines
+    assert "DATABASE_URL" not in text, "the env-file carries the database; nothing else is baked in"
+    assert 'VOLUME ["/data"]' in lines and "EXPOSE 8080" in lines
     cmd = [line for line in lines if line.startswith("CMD")]
     assert cmd == ['CMD ["sh", "-c", "exec uvicorn groundbook.app:app --host \\"$HOST\\" --port \\"$PORT\\""]'], cmd
     assert "COPY groundbook ./groundbook" in lines and "COPY seed ./seed" in lines and not any(line.startswith("COPY . ") for line in lines)

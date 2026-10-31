@@ -1,4 +1,4 @@
-"""Settings for groundbook, all in one place."""
+"""Settings for groundbook, all in one place; an env-file can feed it."""
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
