@@ -59,6 +59,10 @@ class AlreadyCancelled(DomainError):
     status, type, title = 409, "/errors/already-cancelled", "The booking is already cancelled"
 
 
-#  and (status, type, title) of the refusals the framework raises before a route runs.
+#  and (status, type, title) of the refusals the framework raises before a route runs, and of the unexpected.
 VALIDATION = (422, "/errors/validation", "The request body is not valid")
 FILTER = (400, "/errors/validation", "Invalid query parameter")
+INTERNAL = (500, "/errors/internal", "Something went wrong")
+NOT_FOUND = (404, "/errors/not-found", "No such resource")
+METHOD_NOT_ALLOWED = (405, "/errors/method-not-allowed", "Method not allowed")
+HTTP_ERROR = "/errors/http"          # any other status the framework raises; the title is the status's reason phrase

@@ -1,4 +1,4 @@
-"""Short names for the session and the clock."""
+"""One router per resource. Short names for the session and the clock."""
 from typing import Annotated
 
 from fastapi import Depends, Request

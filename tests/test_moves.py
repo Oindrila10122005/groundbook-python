@@ -62,7 +62,7 @@ def test_a_failure_injected_after_the_check_rolls_the_move_back(client, db):
     with db() as s:
         s.execute(text("DROP TRIGGER fail_move"))
         s.commit()
-    assert r.status_code == 500
+        assert r.status_code == 500 and r.json()["type"] == "/errors/internal"
     got = booking(client, a["booking_id"])
     assert got["from"] == ts("14:00") and got["to"] == ts("17:00") and got["ground_held_from"] == ts("13:20")
     with db() as s:
