@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, model_validator
 
 BookingState = Literal["requested", "confirmed", "cancelled", "expired"]
+EventKind = Literal["requested", "confirmed", "moved", "cancelled", "expired", "charged", "invoiced", "rechecked"]
 MIN_INTERVAL = timedelta(minutes=30)
 MAX_INTERVAL = timedelta(hours=12)
 
@@ -83,7 +84,6 @@ class DayOut(BaseModel):
     bookings: list[DayBookingOut]
 
 
-
 class BookingIn(Interval):
     ground: str = Field(min_length=1, max_length=8)
     event: str = Field(min_length=1, max_length=24)
@@ -103,6 +103,21 @@ class BookingCreatedOut(BaseModel):
     hold_until: UtcZ
 
 
+class EventOut(BaseModel):
+    """One timeline row: `at`, `kind`, then the facts that kind carries -- the interval on `requested` and
+    `moved` (a move also names the interval it left), `late` on `cancelled`. Every field the stored event data can carry
+    is declared here; a key the model does not know is an error, not a pass-through. Absent facts are omitted
+    (the route serialises with exclude_none), never sent as null."""
+    model_config = ConfigDict(extra="forbid")
+    at: UtcZ
+    kind: EventKind
+    from_at: UtcZ | None = Field(default=None, alias="from")
+    to_at: UtcZ | None = Field(default=None, alias="to")
+    previous_from: UtcZ | None = None
+    previous_to: UtcZ | None = None
+    late: bool | None = None
+
+
 class BookingOut(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     booking_id: str
@@ -113,6 +128,8 @@ class BookingOut(BaseModel):
     ground_held_from: UtcZ
     ground_held_to: UtcZ
     state: BookingState
+    events: list[EventOut]
+
 
 class ConfirmOut(BaseModel):
     booking_id: str
@@ -125,6 +142,7 @@ class CancelOut(BaseModel):
     state: BookingState
     cancelled_at: UtcZ
     late: bool
+
 
 class MoveIn(Interval):
     pass

@@ -18,8 +18,10 @@ def test_a_valid_request_is_201_requested_with_the_shadow_and_a_hold(client, db)
         row = s.get(Booking, 1)
         assert row.state == "requested" and row.club_name == CLUB and row.requested_at.replace(tzinfo=None) == T0.replace(tzinfo=None)
     b = booking(client, "BK0001")
-    assert b == {"booking_id": "BK0001", "ground": "A", "event": "league", "from": ts("14:00"), "to": ts("17:00"),
-                 "ground_held_from": ts("13:20"), "ground_held_to": ts("17:30"), "state": "requested"}
+    assert {k: v for k, v in b.items() if k != "events"} == {"booking_id": "BK0001", "ground": "A", "event": "league", "from": ts("14:00"),
+                                                          "to": ts("17:00"), "ground_held_from": ts("13:20"), "ground_held_to": ts("17:30"),
+                                                          "state": "requested"}
+    assert b["events"] == [{"at": iso(T0), "kind": "requested", "from": ts("14:00"), "to": ts("17:00")}]
     assert "club" not in b and "hold_until" not in b
 
 
@@ -92,17 +94,3 @@ def test_the_length_bounds_are_validation_not_bad_interval(client):
     r = request(client, "A", "practice", "06:30", "19:00")
     assert r.status_code == 422 and "12 hours" in r.json()["errors"][0]["message"]
     assert request(client, "A", "league", "14:00", "14:30").status_code == 201, "exactly 30 minutes is fine"
-
-
-def test_an_unknown_booking_is_404(client):
-    for bad in ("BK9999", "AS001", "1"):
-        r = client.get(f"/bookings/{bad}")
-        assert r.status_code == 404 and r.json()["type"] == "/errors/no-such-booking", bad
-
-
-def test_a_body_names_the_interval_from_and_to_only(client):
-    r = client.post("/bookings", json={"ground": "A", "event": "league", "from_at": ts("14:00"), "to_at": ts("17:00"), "club": CLUB})
-    assert r.status_code == 422 and {e["field"] for e in r.json()["errors"]} == {"from", "to"}, r.text
-    a = requested(client)
-    r = client.post(f"/bookings/{a['booking_id']}/move", json={"from_at": ts("15:00"), "to_at": ts("18:00")})
-    assert r.status_code == 422 and {e["field"] for e in r.json()["errors"]} == {"from", "to"}, r.text

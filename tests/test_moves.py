@@ -1,7 +1,7 @@
 """A move re-checks the whole new interval, buffers included, excluding itself, and is one transaction."""
 from sqlalchemy import func, select, text
+from groundbook.models import Booking, Event
 
-from groundbook.models import Booking
 from tests.conftest import (
     T0,
     at,
@@ -25,7 +25,7 @@ def test_a_move_into_a_clash_is_409_and_the_booking_stays_where_it_was(client, d
     assert r.json()["type"] == "/errors/overlap"
     assert r.json()["clashes_with"] == [{"booking_id": b["booking_id"], "ground_held_from": ts("17:50"), "ground_held_to": ts("21:00")}]
     got = booking(client, a["booking_id"])
-    assert got["from"] == ts("14:00") and got["to"] == ts("17:00")
+    assert got["from"] == ts("14:00") and got["to"] == ts("17:00") and [e["kind"] for e in got["events"]] == ["requested"]
     with db() as s:
         row = s.get(Booking, 1)
         assert row.moved_at is None and row.previous_from is None
@@ -68,6 +68,7 @@ def test_a_failure_injected_after_the_check_rolls_the_move_back(client, db):
     with db() as s:
         row = s.get(Booking, 1)
         assert row.moved_at is None and row.previous_from is None
+        assert s.scalar(select(func.count()).select_from(Event)) == 1
     assert move(client, a["booking_id"], "15:00", "18:00").status_code == 200, "nothing was left half-done"
 
 
@@ -102,7 +103,7 @@ def test_a_move_to_a_bad_interval_is_400_and_a_malformed_move_is_422(client):
     assert r.status_code == 422 and r.json()["errors"][0]["field"] == "to"
     assert booking(client, a["booking_id"])["from"] == ts("14:00")
 
-    
+
 
 def test_moving_keeps_the_state(client):
     a = requested(client, "A", "league", "14:00", "17:00")

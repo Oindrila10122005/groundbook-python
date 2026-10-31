@@ -86,6 +86,7 @@ def test_a_late_cancel_keeps_the_block_on_the_strip(client, clock):
     cancel(client, b["booking_id"])
     blocks = day(client, "A")["bookings"]
     assert len(blocks) == 1 and blocks[0]["state"] == "cancelled", "the strip does not show the hour as free"
+    assert booking(client, b["booking_id"])["events"][-1] == {"at": at("14:20").strftime("%Y-%m-%dT%H:%M:%SZ"), "kind": "cancelled", "late": True}
 
 
 def test_the_clock_and_the_session_are_depends_on_every_transition(app):

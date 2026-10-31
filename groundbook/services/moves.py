@@ -1,4 +1,6 @@
-"""Moves a booking to a new interval."""
+"""Moves a booking to a new interval.
+clash query, then releases the old interval and takes the new one in one UPDATE -- with its `moved` event in the same
+transaction. Nothing persists if anything after the check fails."""
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -7,6 +9,7 @@ from ..clock import Clock, as_utc
 from ..errors import AlreadyStarted, Cancelled, Overlap
 from ..ids import booking_public
 from ..models import Venue
+from . import events
 from .bookings import Placed, _z, clash_fields, clashes, get_booking, placed
 from .grounds import check_interval
 
@@ -29,5 +32,7 @@ def move(session: Session, venue: Venue, public_id: str, from_at: datetime, to_a
     booking.from_at, booking.to_at = as_utc(from_at), as_utc(to_at)
     booking.moved_at = now
     session.flush()                                                     # one UPDATE: the old interval released, the new one taken
+    events.record(session, venue.id, booking.id, "moved", now, events.OFFICE,
+                  {"from": _z(from_at), "to": _z(to_at), "previous_from": _z(previous_from), "previous_to": _z(previous_to)})
     session.commit()
     return Placed(booking, p.ground, p.event_type, held_from, held_to)

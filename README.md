@@ -11,7 +11,7 @@ A municipal sports complex: bookings with setup and teardown buffers that may ne
 - [x] Ticket 3 · Confirm, cancel, and the hour that has already gone
 - [x] Ticket 4 · The refusals, once the shadows are counted
 - [x] Ticket 5 · Moving a booking without breaking the day
-- [ ] Ticket 6 · A planner nobody can erase
+- [x] Ticket 6 · A planner nobody can erase
 - [ ] Ticket 7 · One file becomes an app
 - [ ] Ticket 8 · The rule table, and then the rule changes
 - [ ] Ticket 9 · It runs on the office machine

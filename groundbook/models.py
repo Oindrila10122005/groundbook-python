@@ -1,4 +1,4 @@
-"""Venues, grounds, event types and bookings. A booking's shadow (interval +/- the event type's buffers)
+"""Venues, grounds, event types, bookings and the event log. A booking's shadow (interval +/- the event type's buffers)
 is computed on read from these rows; there is deliberately no held_from / held_to column anywhere."""
 from datetime import datetime
 
@@ -8,6 +8,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    Text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -50,7 +51,7 @@ class EventType(Base):
 
 class Booking(Base):
     """One row per request. The interval is [from_at, to_at); the shadow is derived. It also holds the transition
-    stamps and the last move."""
+    stamps and the last move (the full history is the events table)."""
     __tablename__ = "bookings"
     id: Mapped[int] = mapped_column(primary_key=True)
     venue_id: Mapped[int] = mapped_column(ForeignKey("venues.id"))
@@ -68,3 +69,15 @@ class Booking(Base):
     moved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     previous_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     previous_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Event(Base):
+    """One row per transition, written in the same transaction as the change. Insert only."""
+    __tablename__ = "events"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    venue_id: Mapped[int] = mapped_column(ForeignKey("venues.id"))
+    booking_id: Mapped[int] = mapped_column(ForeignKey("bookings.id"))
+    kind: Mapped[str] = mapped_column(String(16))                      # requested | confirmed | moved | cancelled | expired | charged | invoiced | rechecked
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    actor_id: Mapped[str] = mapped_column(String(16))                  # who did it: the office (requests carry no identity)
+    data: Mapped[str] = mapped_column(Text, default="{}")              # JSON: ids, intervals and facts -- never the club's phone or email

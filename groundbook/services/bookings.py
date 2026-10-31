@@ -1,5 +1,6 @@
-"""Request, confirm and cancel, the clash predicate on shadows.
-Every transition is one session transaction."""
+"""Request, confirm and cancel, the clash predicate on shadows, the booking with its events.
+Every transition is one session transaction: the row change and its event row commit together or not at all."""
+import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -17,8 +18,9 @@ from ..errors import (
     Overlap,
 )
 from ..ids import booking_internal, booking_public
-from ..models import Booking, EventType, Ground, Venue
+from ..models import Booking, Event, EventType, Ground, Venue
 from ..settings import Settings
+from . import events
 from .grounds import check_interval, get_event_type, get_ground, shadow
 
 
@@ -53,7 +55,7 @@ def is_live(booking: Booking, now: datetime) -> bool:
 def clashes(session: Session, ground: Ground, held_from: datetime, held_to: datetime, now: datetime,
             exclude_id: int | None = None) -> list[tuple[Booking, datetime, datetime]]:
     """The clash predicate, on shadows, half-open: `held_from_new < held_to_other AND held_from_other < held_to_new`.
-    The request and the confirm call this one function; `exclude_id` is the booking itself."""
+    Requesting, confirming and moving all call this one function. `exclude_id` is the booking itself (the one being confirmed or moved)."""
     window_start, window_end = held_from - timedelta(days=1), held_to + timedelta(days=1)
     rows = session.execute(select(Booking, EventType).join(EventType, Booking.event_type_id == EventType.id)
                            .where(Booking.ground_id == ground.id, Booking.from_at >= window_start, Booking.from_at < window_end)
@@ -90,6 +92,8 @@ def request(session: Session, venue: Venue, ground_code: str, event_code: str, f
     booking = Booking(venue_id=venue.id, ground_id=ground.id, event_type_id=event_type.id, club_name=club, from_at=as_utc(from_at),
                       to_at=as_utc(to_at), state="requested", requested_at=now, hold_until=now + timedelta(hours=settings.hold_hours))
     session.add(booking)
+    session.flush()
+    events.record(session, venue.id, booking.id, "requested", now, events.OFFICE, {"from": _z(from_at), "to": _z(to_at)})
     session.commit()
     return Placed(booking, ground, event_type, held_from, held_to)
 
@@ -117,6 +121,7 @@ def confirm(session: Session, venue: Venue, public_id: str, clock: Clock) -> Boo
                       f"{_z(p.held_from)} to {_z(p.held_to)}", clashes_with=clash_fields(found))
     booking.state = "confirmed"
     booking.confirmed_at = now
+    events.record(session, venue.id, booking.id, "confirmed", now, events.OFFICE)
     session.commit()
     return booking
 
@@ -133,5 +138,12 @@ def cancel(session: Session, venue: Venue, public_id: str, clock: Clock) -> Book
     booking.state = "cancelled"
     booking.cancelled_at = now
     booking.late_cancel = late
+    events.record(session, venue.id, booking.id, "cancelled", now, events.OFFICE, {"late": late})
     session.commit()
     return booking
+
+
+def timeline(session: Session, booking: Booking) -> list[dict]:
+    """The booking's events in `at` order -- the only history shown."""
+    rows = session.scalars(select(Event).where(Event.booking_id == booking.id).order_by(Event.at, Event.id)).all()
+    return [{"at": as_utc(e.at), "kind": e.kind, **json.loads(e.data)} for e in rows]

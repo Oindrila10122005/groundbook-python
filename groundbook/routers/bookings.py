@@ -23,13 +23,13 @@ def request_booking(body: BookingIn, response: Response, session: SessionDep, cl
                              hold_until=p.booking.hold_until)
 
 
-@router.get("/{booking_id}", response_model=BookingOut)
+@router.get("/{booking_id}", response_model=BookingOut, response_model_exclude_none=True)
 def read_booking(booking_id: str, session: SessionDep) -> BookingOut:
     venue = get_venue(session, VENUE[0])
     booking = bookings.get_booking(session, venue, booking_id)
     p = bookings.placed(session, booking)
     return BookingOut(booking_id=booking_id, ground=p.ground.code, event=p.event_type.code, from_at=booking.from_at, to_at=booking.to_at,
-                      ground_held_from=p.held_from, ground_held_to=p.held_to, state=booking.state)
+                      ground_held_from=p.held_from, ground_held_to=p.held_to, state=booking.state, events=bookings.timeline(session, booking))
 
 
 @router.post(
