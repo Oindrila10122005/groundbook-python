@@ -161,3 +161,7 @@ class MoveOut(BaseModel):
 class SettingsOut(BaseModel):
     hold_hours: int
     buffers: dict[str, tuple[int, int]]
+
+
+class HealthOut(BaseModel):
+    status: Literal["ok"]

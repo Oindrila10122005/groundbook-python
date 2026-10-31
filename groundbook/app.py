@@ -22,7 +22,7 @@ TAGS = [
     {"name": "grounds", "description": "The complex -- four grounds, their hours, six event types with buffers -- and one ground's day as blocks with shadows"},
     {"name": "bookings", "description": "A club asks for a slot; the office confirms or cancels it"},
     {"name": "moves", "description": "A booking moves, the whole new interval re-checked with its buffers"},
-    {"name": "settings", "description": "Rules in force"},
+    {"name": "settings", "description": "Rules in force, health"},
 ]
 
 

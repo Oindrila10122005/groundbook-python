@@ -23,7 +23,7 @@ ANSWERS = {
     ("post", "/bookings/{booking_id}/confirm"): {"200", "404", "409", "500"},
     ("post", "/bookings/{booking_id}/cancel"): {"200", "404", "409", "500"},
     ("post", "/bookings/{booking_id}/move"): {"200", "400", "404", "409", "422", "500"},
-    ("get", "/settings"): {"200", "500"},
+    ("get", "/settings"): {"200", "500"},    ("get", "/healthz"): {"200", "500"},
 }
 
 
@@ -39,7 +39,7 @@ def test_docs_render_and_list_every_endpoint_with_a_summary_and_a_tag(client):
     assert set(paths) == {"/venues/{venue}/grounds", "/venues/{venue}/event-types", "/venues/{venue}/grounds/{ground}/day", "/bookings",
                           "/bookings/{booking_id}", "/bookings/{booking_id}/confirm", "/bookings/{booking_id}/cancel", "/bookings/{booking_id}/move",
                           "/settings"}
-    assert {t["name"] for t in spec["tags"]} == {"grounds", "bookings", "moves", "settings"}
+    assert {t["name"] for t in spec["tags"]} == {"grounds", "bookings", "moves", "settings" ,"/settings", "/healthz"}
     for path, ops in paths.items():
         for op in ops.values():
             assert op.get("summary") and len(op.get("tags", [])) == 1, path
@@ -48,7 +48,7 @@ def test_docs_render_and_list_every_endpoint_with_a_summary_and_a_tag(client):
                     ("get", "/venues/{venue}/grounds/{ground}/day"): "grounds", ("post", "/bookings"): "bookings",
                     ("get", "/bookings/{booking_id}"): "bookings", ("post", "/bookings/{booking_id}/confirm"): "bookings",
                     ("post", "/bookings/{booking_id}/cancel"): "bookings", ("post", "/bookings/{booking_id}/move"): "moves",
-                    ("get", "/settings"): "settings"}
+                    ("get", "/settings"): "settings" ,                    ("get", "/settings"): "settings", ("get", "/healthz"): "settings"}
 
 
 def test_every_refusal_is_documented_with_a_problem_example(client):
